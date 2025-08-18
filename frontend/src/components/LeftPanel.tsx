@@ -238,9 +238,13 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
                 {doc.sections && doc.sections.length > 0 && (
                   <div className="ml-6 space-y-2">
                     {doc.sections.map((section, idx) => (
-                      <div
+                      <button
                         key={idx}
                         className="w-full p-3 text-left bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
+                        onClick={() => onSectionClick({
+                          ...section,
+                          document_name: doc.id,
+                        })}
                       >
                         <div className="flex flex-col min-w-0">
                           <div className="font-medium text-xs mb-1">
@@ -263,7 +267,7 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
                             <span className="text-2xl">"</span>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}

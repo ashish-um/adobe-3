@@ -23,9 +23,10 @@ interface RightPanelProps {
   selectedText: string;
   onAudioFormatSelect: (format: 'debater' | 'investigator' | 'fundamentals' | 'connections') => void;
   activeAudioFormat: 'debater' | 'investigator' | 'fundamentals' | 'connections' | null;
+  onSectionCardClick?: (docId: string, searchTerm: string) => void;
 }
 
-const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: RightPanelProps) => {
+const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSectionCardClick }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<'related' | 'insights'>('related');
   const [activeInsightTab, setActiveInsightTab] = useState<'contradictions' | 'enhancements' | 'connections'>('contradictions');
   const [isLoading, setIsLoading] = useState(false);
@@ -135,26 +136,39 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
 
   const renderSectionList = (sections: Section[]) => (
     <div className="space-y-3">
-      {sections.map((section, idx) => (
-        <div
-          key={idx}
-          className="p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
-        >
-          <div className="font-medium text-sm mb-1">{section.section_title}</div>
-          {section.original_content && (
-            <div className="text-xs text-foreground mb-2 line-clamp-3">
-              {section.original_content.length > 120
-                ? section.original_content.slice(0, 120) + '...'
-                : section.original_content}
+      {sections.map((section, idx) => {
+        const docId = section.document_name;
+        return (
+          <button
+            key={idx}
+            className="break-all w-full text-left p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
+            onClick={() => {
+              if (onSectionCardClick && docId) {
+                console.log(docId)
+                const trimmedContent = section.original_content
+                  ? section.original_content.slice(0, 30)
+                  : (section.section_title || "");
+                onSectionCardClick(docId, trimmedContent);
+              }
+            }}
+            title={section.section_title}
+          >
+            <div className="break-all font-medium text-sm mb-1">{section.section_title}</div>
+            {section.original_content && (
+              <div className="text-xs text-foreground mb-2 line-clamp-3">
+                {section.original_content.length > 120
+                  ? section.original_content.slice(0, 120) + '...'
+                  : section.original_content}
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{section.full_path}</div>
+            <div className="text-xs text-muted-foreground">Page: {section.page_number} | Doc: {section.document_name}</div>
+            <div className="text-right mt-2">
+              <span className="text-2xl">"</span>
             </div>
-          )}
-          <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{section.full_path}</div>
-          <div className="text-xs text-muted-foreground">Page: {section.page_number} | Doc: {section.document_name}</div>
-          <div className="text-right mt-2">
-            <span className="text-2xl">"</span>
-          </div>
-        </div>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 

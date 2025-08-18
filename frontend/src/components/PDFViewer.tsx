@@ -6,6 +6,7 @@ import useDebounce from "../hooks/useDebounce"; // Your existing debounce hook
 interface PDFViewerProps {
   documentId?: string;
   onTextSelect: (text: string) => void;
+  searchOnLoad?: string;
 }
 
 // Add Adobe DC View types
@@ -17,11 +18,11 @@ declare global {
   }
 }
 
-const PDFViewer = ({ documentId, onTextSelect }: PDFViewerProps) => {
+const PDFViewer = ({ documentId, onTextSelect, searchOnLoad }: PDFViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [adobeViewer, setAdobeViewer] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(searchOnLoad || "");
   const [selectionInterval, setSelectionInterval] =
     useState<NodeJS.Timeout | null>(null);
 
@@ -73,12 +74,28 @@ const PDFViewer = ({ documentId, onTextSelect }: PDFViewerProps) => {
     };
   }, []); // Run only once
 
-  useEffect(() => {
-    // This effect handles loading the PDF when the documentId changes
-    if (documentId && window.AdobeDC && viewerRef.current) {
-      loadPDF();
-    }
-  }, [documentId]);
+// Only reload PDF when documentId changes
+useEffect(() => {
+  if (documentId && window.AdobeDC && viewerRef.current) {
+    loadPDF();
+  }
+}, [documentId]);
+
+// When searchOnLoad changes and PDF is loaded, trigger search in the open PDF
+useEffect(() => {
+  if (searchOnLoad && searchOnLoad.trim() && adobeViewer) {
+    setSearchTerm(searchOnLoad);
+    adobeViewer.getAPIs().then((apis: any) => {
+      if (apis.search) {
+        apis.search(searchOnLoad).then((result: any) => {
+          console.log("Auto-search result (no reload):", result);
+        }).catch((error: any) => {
+          console.error("Auto-search error (no reload):", error);
+        });
+      }
+    });
+  }
+}, [searchOnLoad]);
 
   const loadPDF = async () => {
     if (!viewerRef.current || !documentId) return;
@@ -121,9 +138,32 @@ const PDFViewer = ({ documentId, onTextSelect }: PDFViewerProps) => {
 
       previewFilePromise.then((viewer) => {
         console.log("PDF loaded successfully");
+        // PDF loaded, optionally trigger search if searchOnLoad is set
         setAdobeViewer(viewer);
         setIsLoading(false);
         setupTextSelectionMonitoring(viewer);
+        console.log(searchOnLoad);
+        // If searchOnLoad is provided, trigger search immediately
+        if (searchOnLoad && searchOnLoad.trim()) {
+          setSearchTerm(searchOnLoad);
+          setTimeout(() => {
+            viewer.getAPIs().then((apis: any) => {
+              if (apis.search) {
+                apis.search(searchOnLoad).then((result: any) => {
+                  console.log("Auto-search result:", result);
+                  const matches = result && Array.isArray(result.matches) ? result.matches : [];
+                  // if (matches.length > 0) {
+                  //   alert(`Found ${matches.length} matches for '${searchOnLoad}'`);
+                  // } else {
+                  //   alert(`No matches found for '${searchOnLoad}'`);
+                  // }
+                }).catch((error: any) => {
+                  console.error("Auto-search error:", error);
+                });
+              }
+            });
+          }, 500); // slight delay to ensure PDF is rendered
+        }
       });
     } catch (error) {
       console.error("Error initializing Adobe PDF viewer:", error);
@@ -167,15 +207,48 @@ const PDFViewer = ({ documentId, onTextSelect }: PDFViewerProps) => {
         if (apis.search) {
           apis
             .search(searchTerm)
-            .catch((error: any) => console.error("Search error:", error));
+            .then((result: any) => {
+              console.log("Search result:", result);
+              // Adobe PDF Embed API returns { matches: [...] }
+              const matches = result && Array.isArray(result.matches) ? result.matches : [];
+              // if (matches.length > 0) {
+              //   alert(`Found ${matches.length} matches for '${searchTerm}'`);
+              // } else {
+              //   alert(`No matches found for '${searchTerm}'`);
+              // }
+            })
+            .catch((error: any) => {
+              console.error("Search error:", error);
+              // alert(`Search failed: ${error.message || error}`);
+            });
+        } else {
+          // alert("Search API not available.");
         }
       });
+    } else {
+      // alert("Viewer not ready or search term empty.");
     }
   };
 
   return (
     <div className="h-full flex flex-col bg-card">
       {/* PDF Toolbar */}
+      <div className="flex items-center gap-2 p-2">
+        <Input
+          type="text"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Enter search term..."
+          style={{ width: "200px" }}
+        />
+        <button
+          className="px-2 py-1 bg-primary text-white rounded"
+          onClick={handleSearch}
+          disabled={isLoading || !adobeViewer}
+        >
+          <Search size={16} /> Test Search
+        </button>
+      </div>
       <div className="flex items-center justify-between p-[1rem] border-b border-panel-border bg-panel-background">
         <div className="flex items-center gap-4">
           <h2 className="font-medium text-lg">

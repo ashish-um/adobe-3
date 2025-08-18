@@ -6,10 +6,14 @@ import PDFViewer from "@/components/PDFViewer";
 import RightPanel from "@/components/RightPanel";
 
 interface Section {
-  id: string;
-  title: string;
-  preview: string;
-  source: string;
+  id?: string;
+  title?: string;
+  preview?: string;
+  source?: string;
+  section_title?: string;
+  original_content?: string;
+  document_name?: string;
+  full_path?: string;
 }
 
 const Index = () => {
@@ -18,15 +22,23 @@ const Index = () => {
   const [audioFormat, setAudioFormat] = useState<
     "debater" | "investigator" | "fundamentals" | "connections" | null
   >(null);
-  // Removed retrievedSections state; will be handled in LeftPanel
+  const [searchOnLoad, setSearchOnLoad] = useState<string>("");
 
+  // When a section is clicked, open its document and search for its heading/content
   const handleSectionClick = (section: Section) => {
-    console.log("Section clicked:", section);
-    // Here you would handle section selection logic
+    // Prefer section.section_title or section.title for heading, fallback to original_content
+    const heading = section.section_title || section.title || section.original_content || "";
+    // Prefer document_name or full_path for document id
+    const docId = section.document_name || section.full_path || "";
+    setSelectedDocument(docId);
+    setSearchOnLoad(heading);
+    console.log(heading)
+    setSelectedText(heading); // Optionally set selected text for right panel
   };
 
   const handleDocumentSelect = (documentId: string) => {
     setSelectedDocument(documentId);
+    setSearchOnLoad(""); // Clear auto-search when just switching document
     console.log("Document selected:", documentId);
   };
 
@@ -54,7 +66,6 @@ const Index = () => {
         <LeftPanel
           onSectionClick={handleSectionClick}
           onDocumentSelect={handleDocumentSelect}
-          selectedText={selectedText}
         />
       </ResizablePanel>
 
@@ -63,6 +74,7 @@ const Index = () => {
         <PDFViewer
           documentId={selectedDocument}
           onTextSelect={handleTextSelect}
+          searchOnLoad={searchOnLoad}
         />
       </div>
 
@@ -78,6 +90,14 @@ const Index = () => {
           selectedText={selectedText}
           onAudioFormatSelect={handleAudioFormatSelect}
           activeAudioFormat={audioFormat}
+          onSectionCardClick={(docId: string, searchTerm: string) => {
+            if (docId === selectedDocument) {
+              setSearchOnLoad(searchTerm);
+            } else {
+              setSelectedDocument(docId);
+              setSearchOnLoad(searchTerm);
+            }
+          }}
         />
       </ResizablePanel>
     </div>
