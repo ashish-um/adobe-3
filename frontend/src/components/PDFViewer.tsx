@@ -98,8 +98,8 @@ const PDFViewer = ({ documentId, onTextSelect }: PDFViewerProps) => {
         divId: adobeViewerDiv.id,
       });
 
-      // Replace with your actual PDF URL logic
-      const pdfUrl = "test.pdf";
+      // Use the selected documentId as the PDF filename, loading from backend static route
+      const pdfUrl = documentId ? `http://localhost:8000/pdfs/${documentId}` : "test.pdf";
 
       const previewFilePromise = adobeDCView.previewFile(
         {

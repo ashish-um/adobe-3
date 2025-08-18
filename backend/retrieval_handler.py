@@ -17,22 +17,22 @@ EMBEDDING_MODEL = "models/text-embedding-004"
 GENERATION_MODEL = "gemini-1.5-flash"
 CHROMA_DB_PATH = "chroma_db"
 CHROMA_COLLECTION_NAME = "document_insights"
-# *** FIX: Corrected the model name format ***
 RERANKER_MODEL = 'cross-encoder/ms-marco-MiniLM-L6-v2'
 
-# --- NEW, MORE POWERFUL PROMPT ---
-# This prompt instructs the model to return structured objects, not just strings.
+# --- REFINED PROMPT for better JSON compliance ---
 INITIAL_INSIGHTS_PROMPT = """
 You are an expert AI assistant. Your task is to analyze a user's selected text and categorize the provided context sections.
 
-Based ONLY on the provided context, generate a JSON object with four keys: "contradictions", "enhancements", "connections", and "podcast_script".
+Based ONLY on the provided context, generate a single, valid JSON object and nothing else. Do not add any explanatory text or markdown formatting before or after the JSON.
 
-1.  **contradictions**: An array containing the full JSON objects of any context sections that directly contradict or challenge the user's selected text.
-2.  **enhancements**: An array containing the full JSON objects of any context sections that build upon, refine, or provide a more detailed example of the user's selection.
-3.  **connections**: An array containing the full JSON objects of any context sections that are related but not direct enhancements.
-4.  **podcast_script**: A general, insightful, two-speaker podcast script of 2-5 minutes summarizing the key findings.
+The JSON object must have four keys: "contradictions", "enhancements", "connections", and "podcast_script".
 
-If a category has no relevant sections, return an empty array for it. Each category should contain a maximum of 5 snippets.
+1.  **contradictions**: An array of the full JSON objects for any context sections that directly contradict the user's selected text.
+2.  **enhancements**: An array of the full JSON objects for any context sections that build upon or provide a detailed example of the user's selection.
+3.  **connections**: An array of the full JSON objects for any context sections that are related but not direct enhancements.
+4.  **podcast_script**: A two-speaker podcast script of 2-5 minutes summarizing the key findings.
+
+If a category has no relevant sections, its value must be an empty array.
 
 USER'S SELECTED TEXT:
 "{user_selection}"
@@ -42,7 +42,6 @@ CONTEXT (Sections from the user's library):
 ---
 """
 
-# This is a new, targeted prompt for on-demand persona podcasts
 PERSONA_PODCAST_PROMPT = """
 You are a creative podcast script writer. Based on the user's selected text and the provided context, write a short, engaging, two-speaker podcast script (Host, Analyst) of 2-5 minutes in the style of a "{persona}".
 
@@ -72,26 +71,47 @@ PERSONA_STYLES = {
     "connector": "The Host and Analyst should focus on drawing surprising connections and analogies between the selected topic and other concepts found in the context, even from different domains."
 }
 
-# *** NEW: Robust JSON parsing function ***
+# *** NEW: More Robust JSON Parsing Function ***
 def extract_json_from_string(text: str) -> Dict[str, Any]:
     """
-    Finds and parses the first valid JSON object from a string.
+    Finds and parses the first valid JSON object from a string,
+    ignoring markdown code fences and other leading/trailing text.
     """
     try:
+        # Clean up markdown fences if they exist
+        if text.strip().startswith("```json"):
+            text = text.strip()[7:-3]
+        elif text.strip().startswith("```"):
+            text = text.strip()[3:-3]
+
         # Find the start of the JSON object
         start_index = text.find('{')
-        # Find the end of the JSON object
-        end_index = text.rfind('}') + 1
-        
-        if start_index == -1 or end_index == 0:
-            print("Error: No JSON object found in the response string.")
-            return {"error": "Invalid response format from model."}
+        if start_index == -1:
+            raise ValueError("No JSON object found in the response string.")
+
+        # Find the end of the JSON object by balancing braces, which is more reliable
+        open_braces = 0
+        end_index = -1
+        for i in range(start_index, len(text)):
+            if text[i] == '{':
+                open_braces += 1
+            elif text[i] == '}':
+                open_braces -= 1
             
+            if open_braces == 0:
+                end_index = i + 1
+                break
+        
+        if end_index == -1:
+            raise ValueError("Could not find the end of the JSON object.")
+
         json_str = text[start_index:end_index]
         return json.loads(json_str)
+        
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON: {e}")
-        print(f"Problematic string: {text}")
+        # It's helpful to log the problematic segment for debugging
+        print(f"Problematic string segment for parser: {json_str}")
         return {"error": "Failed to parse JSON from model response."}
     except Exception as e:
         print(f"An unexpected error occurred during JSON extraction: {e}")
@@ -138,10 +158,13 @@ class RetrievalHandler:
             prompt = MULTI_QUERY_PROMPT.format(user_selection=user_selection)
             fast_model = genai.GenerativeModel(GENERATION_MODEL, generation_config={"response_mime_type": "application/json"})
             response = await fast_model.generate_content_async(prompt)
+            print(response)
+            # Use the robust parser here as well
             sub_queries = extract_json_from_string(response.text).get("queries", [])
             queries = [user_selection] + sub_queries
         except Exception:
-            queries = [user_selection]
+            queries = [user_selection] # Fallback to single query
+            
         embeddings = await genai.embed_content_async(model=EMBEDDING_MODEL, content=queries, task_type="RETRIEVAL_QUERY")
         query_results = self.collection.query(query_embeddings=embeddings['embedding'], n_results=10)
         candidate_metadatas = {}
@@ -166,6 +189,7 @@ class RetrievalHandler:
         context_sections = await self.retrieve_deep_async(user_selection)
         if not context_sections:
             return {"contradictions": [], "enhancements": [], "connections": [], "podcast_script": "No relevant context found."}
+        
         prompt = INITIAL_INSIGHTS_PROMPT.format(
             user_selection=user_selection, context_sections_json=json.dumps(context_sections, indent=2)
         )
@@ -181,13 +205,34 @@ class RetrievalHandler:
         context_sections = await self.retrieve_deep_async(user_selection)
         if not context_sections:
             return {"podcast_script": "Cannot generate a podcast without context."}
+            
         style_guide = PERSONA_STYLES.get(persona, "a balanced and informative style")
         prompt = PERSONA_PODCAST_PROMPT.format(
             persona=style_guide, user_selection=user_selection, context_sections_json=json.dumps(context_sections, indent=2)
         )
         try:
+            # For text-only generation, no need for JSON mime type
             text_generation_model = genai.GenerativeModel(GENERATION_MODEL)
             response = await text_generation_model.generate_content_async(prompt)
             return {"podcast_script": response.text.strip()}
         except Exception as e:
             return {"error": f"Could not generate persona podcast: {e}"}
+            
+    def delete_document(self, document_name: str):
+        """
+        Deletes all vector entries associated with a specific document name
+        from the ChromaDB collection.
+        """
+        print(f"Attempting to delete all entries for document: {document_name}")
+        
+        try:
+            # The 'where' filter is the key. It tells ChromaDB to only
+            # delete items that match this metadata condition.
+            self.collection.delete(
+                where={"document_name": document_name}
+            )
+            print(f"Successfully deleted all entries for {document_name}.")
+            return {"status": "success", "message": f"Document '{document_name}' deleted."}
+        except Exception as e:
+            print(f"Error deleting document {document_name}: {e}")
+            return {"status": "error", "message": str(e)}

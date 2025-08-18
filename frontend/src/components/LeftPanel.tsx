@@ -12,10 +12,22 @@ interface Document {
 }
 
 interface Section {
-  id: string;
-  title: string;
-  preview: string;
-  source: string;
+  bounding_box?: {
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+  };
+  document_name?: string;
+  full_path?: string;
+  original_content?: string;
+  page_number?: number;
+  section_title?: string;
+  // legacy fields for savedSections
+  id?: string;
+  title?: string;
+  preview?: string;
+  source?: string;
   hasGlow?: boolean;
 }
 
@@ -27,38 +39,75 @@ interface LeftPanelProps {
 const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
   const [activeTab, setActiveTab] = useState<"library" | "saved">("library");
   const [searchQuery, setSearchQuery] = useState("");
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [uploading, setUploading] = useState(false);
 
-  // Mock data - replace with real data
-  const documents: Document[] = [
-    {
-      id: "1",
-      name: "Business_Report_2022",
-      type: "business",
-      sections: [
-        {
-          id: "1-1",
-          title: "Chapter 3 > String Theory",
-          preview:
-            "Lorem Ipsum is simply dummy text of the printing and typesetting industry...",
-          source: "Source: Document Name, Page 5",
-          hasGlow: true,
-        },
-        {
-          id: "1-2",
-          title: "Chapter 3 > String Theory",
-          preview:
-            "Lorem Ipsum has been the industry's standard dummy text ever since...",
-          source: "Source: Document Name, Page 6",
-        },
-      ],
-    },
-    {
-      id: "2",
-      name: "Market_Report_2022",
-      type: "market",
-      sections: [],
-    },
-  ];
+  // Fetch PDF list from backend
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/list_pdfs");
+      const data = await response.json();
+      if (data.pdfs) {
+        // For each document, fetch its related sections
+        const docsWithSections = await Promise.all(
+          data.pdfs.map(async (filename: string) => {
+            let sections: any[] = [];
+            try {
+              const secRes = await fetch("http://localhost:8000/get_retrieved_sections", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ document_name: filename })
+              });
+              const secData = await secRes.json();
+              sections = secData.retrieved_sections || [];
+            } catch (err) {
+              sections = [];
+            }
+            return {
+              id: filename,
+              name: filename,
+              type: "business",
+              sections: sections
+            };
+          })
+        );
+        setDocuments(docsWithSections);
+      }
+    } catch (error) {
+      console.error("Error fetching PDFs:", error);
+      setDocuments([]);
+    }
+  };
+
+  // Initial fetch
+  useState(() => {
+    fetchDocuments();
+  });
+
+  // Handle batch upload
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
+    try {
+      const response = await fetch("http://localhost:8000/upload_batch", {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+      if (data.filenames) {
+        fetchDocuments();
+      }
+    } catch (error) {
+      console.error("Error uploading PDFs:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const savedSections: Section[] = [
     {
@@ -70,6 +119,9 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
     },
   ];
 
+
+
+  
   const getDocumentIcon = (type: string) => {
     switch (type) {
       case "business":
@@ -83,6 +135,18 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
 
   return (
     <div className="h-full flex flex-col panel border-r">
+      {/* Upload PDFs */}
+      <div className="p-4 border-b border-panel-border flex items-center gap-4">
+        <input
+          type="file"
+          accept="application/pdf"
+          multiple
+          onChange={handleUpload}
+          disabled={uploading}
+        />
+        {uploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
+      </div>
+
       {/* Tab Headers */}
       <div className="flex border-b border-panel-border">
         <button
@@ -132,55 +196,74 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
         {activeTab === "library" ? (
           <div className="p-4 space-y-4">
             {documents.map((doc) => (
-              <div key={doc.id} className="space-y-2">
+              <div key={doc.id} className="space-y-2 flex items-center">
                 <button
                   onClick={() => onDocumentSelect(doc.id)}
-                  className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-sidebar-hover transition-colors text-left"
+                  className="flex items-center gap-3 flex-1 p-3 rounded-lg hover:bg-sidebar-hover transition-colors text-left"
                 >
                   {getDocumentIcon(doc.type)}
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">
-                      {doc.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {doc.type === "business"
-                        ? "market business report..."
-                        : "market mechanics link..."}
+                    <div className="font-medium text-sm truncate max-w-[180px]" title={doc.name}>
+                      {doc.name.length > 32 ? doc.name.slice(0, 29) + '...' : doc.name}
                     </div>
                   </div>
+                <button
+                  className="ml-2 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                  title="Delete document"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm(`Delete ${doc.name}? This cannot be undone.`)) return;
+                    try {
+                      const response = await fetch("http://localhost:8000/delete_document", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ document_name: doc.name })
+                      });
+                      const data = await response.json();
+                      if (!data.error) {
+                        fetchDocuments();
+                      } else {
+                        alert("Delete failed: " + data.error);
+                      }
+                    } catch (err) {
+                      alert("Delete failed: " + err);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
                 </button>
 
-                {/* Document Sections */}
+                {/* Related Sections for this document */}
                 {doc.sections && doc.sections.length > 0 && (
                   <div className="ml-6 space-y-2">
-                    {doc.sections.map((section) => (
-                      <button
-                        key={section.id}
-                        onClick={() => onSectionClick(section)}
+                    {doc.sections.map((section, idx) => (
+                      <div
+                        key={idx}
                         className="w-full p-3 text-left bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
                       >
-                        <div className="flex items-start gap-2">
-                          {section.hasGlow && (
-                            <div className="w-3 h-3 mt-1 flex-shrink-0">
-                              <div className="w-full h-full rounded-full bg-yellow-400 bulb-glow animate-pulse" />
+                        <div className="flex flex-col min-w-0">
+                          <div className="font-medium text-xs mb-1">
+                            {section.section_title || section.title}
+                          </div>
+                          {section.original_content && section.original_content.trim() !== '' && (
+                            <div className="text-xs text-foreground mb-2 line-clamp-3">
+                              {section.original_content.length > 120
+                                ? section.original_content.slice(0, 120) + '...'
+                                : section.original_content}
                             </div>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm mb-1">
-                              {section.title}
-                            </div>
-                            <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                              {section.preview}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {section.source}
-                            </div>
-                            <div className="text-right mt-2">
-                              <span className="text-2xl">"</span>
-                            </div>
+                          <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                            {section.full_path || section.preview}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {section.page_number !== undefined ? `Page: ${section.page_number}` : ''}
+                          </div>
+                          <div className="text-right mt-2">
+                            <span className="text-2xl">"</span>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}

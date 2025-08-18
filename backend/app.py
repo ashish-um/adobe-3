@@ -1,8 +1,14 @@
+
+# --- Serve PDFs statically ---
+from flask import send_from_directory
+
+
 import os
 import asyncio
 import time
 from functools import wraps
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from asgiref.wsgi import WsgiToAsgi
@@ -25,6 +31,7 @@ ALLOWED_EXTENSIONS = {'pdf'}
 flask_app = Flask(__name__)
 flask_app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(flask_app.config['UPLOAD_FOLDER'], exist_ok=True)
+CORS(flask_app, supports_credentials=True)
 
 # --- Initialize Handlers ---
 try:
@@ -144,6 +151,55 @@ async def get_persona_podcast():
         return jsonify(llm_response)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
+    
+
+# --- List PDFs Endpoint ---
+@flask_app.route('/list_pdfs', methods=['GET'])
+def list_pdfs():
+    try:
+        pdf_dir = flask_app.config['UPLOAD_FOLDER']
+        pdf_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')]
+        return jsonify({"pdfs": pdf_files}), 200
+    except Exception as e:
+        return jsonify({"error": f"Could not list PDFs: {e}"}), 500
+    
+
+
+@flask_app.route('/pdfs/<path:filename>')
+def serve_pdf(filename):
+    pdf_dir = flask_app.config['UPLOAD_FOLDER']
+    return send_from_directory(pdf_dir, filename)
+
+
+
+# --- Delete PDF file when deleting document ---
+@flask_app.route('/delete_document', methods=['POST'])
+def delete_document():
+    data = request.get_json()
+    if not data or 'document_name' not in data:
+        return jsonify({"error": "Missing 'document_name' key."}), 400
+    document_name = data['document_name']
+    pdf_dir = flask_app.config['UPLOAD_FOLDER']
+    pdf_path = os.path.join(pdf_dir, document_name)
+    try:
+        # Remove PDF file if it exists
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        # Optionally: also remove from vector store here if needed
+        # ...existing vector store deletion logic...
+        return jsonify({"message": f"Deleted {document_name}"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Could not delete {document_name}: {e}"}), 500
+
+
+
+
+
+
+
+
 
 # --- ASGI Wrapper ---
 app = WsgiToAsgi(flask_app)
+
+

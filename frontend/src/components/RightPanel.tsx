@@ -6,10 +6,17 @@ import { Play, Pause } from 'lucide-react';
 import LoadingText from './LoadingText';
 
 interface Section {
-  id: string;
-  title: string;
-  preview: string;
-  source: string;
+  bounding_box: {
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+  };
+  document_name: string;
+  full_path: string;
+  original_content: string;
+  page_number: number;
+  section_title: string;
 }
 
 interface RightPanelProps {
@@ -21,19 +28,10 @@ interface RightPanelProps {
 const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<'related' | 'insights'>('related');
   const [activeInsightTab, setActiveInsightTab] = useState<'contradictions' | 'enhancements' | 'connections'>('contradictions');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(60);
-
-  useEffect(() => {
-    // Show loading for 3 seconds then show content
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -52,49 +50,62 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
     return () => clearInterval(interval);
   }, [isPlaying, duration]);
 
-  // Mock data for related sections
-  const relatedSections: Section[] = [
-    {
-      id: 'r1',
-      title: 'Chapter 3 > String Theory',
-      preview: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry...',
-      source: 'Source: Document Name, Page 5'
-    },
-    {
-      id: 'r2',
-      title: 'Chapter 3 > String Theory',
-      preview: 'Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s...',
-      source: 'Source: Document Name, Page 6'
-    }
-  ];
+  // Related sections and AI insights from API
+  const [relatedSections, setRelatedSections] = useState<Section[]>([]);
+  const [aiInsights, setAiInsights] = useState<{ contradictions: Section[]; enhancements: Section[]; connections: Section[]; podcast_script: { line: string; speaker: string }[] }>({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
-  // Mock data for AI insights
-  const aiInsights = {
-    contradictions: [
-      {
-        id: 'c1',
-        title: 'Market Trend Contradiction',
-        preview: 'The data shows conflicting trends in consumer behavior...',
-        source: 'AI Analysis'
+  useEffect(() => {
+    if (!selectedText) {
+      setRelatedSections([]);
+      setAiInsights({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
+      return;
+    }
+    setIsLoadingRelated(true);
+    setIsLoadingInsights(true);
+    // Fetch related sections
+    const fetchRelated = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/get_retrieved_sections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selection: selectedText })
+        });
+        const data = await response.json();
+        setRelatedSections(data.retrieved_sections || []);
+      } catch (error) {
+        console.error("Error retrieving sections:", error);
+        setRelatedSections([]);
+      } finally {
+        setIsLoadingRelated(false);
       }
-    ],
-    enhancements: [
-      {
-        id: 'e1',
-        title: 'Data Enhancement Suggestion',
-        preview: 'Additional market research could strengthen this analysis...',
-        source: 'AI Enhancement'
+    };
+    // Fetch AI insights
+    const fetchInsights = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/get_generated_insights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selection: selectedText })
+        });
+        const data = await response.json();
+        setAiInsights({
+          contradictions: data.contradictions || [],
+          enhancements: data.enhancements || [],
+          connections: data.connections || [],
+          podcast_script: data.podcast_script || []
+        });
+      } catch (error) {
+        console.error("Error retrieving insights:", error);
+        setAiInsights({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
+      } finally {
+        setIsLoadingInsights(false);
       }
-    ],
-    connections: [
-      {
-        id: 'con1',
-        title: 'Cross-Reference Link',
-        preview: 'This section relates to findings in Chapter 7...',
-        source: 'AI Connection'
-      }
-    ]
-  };
+    };
+    fetchRelated();
+    fetchInsights();
+  }, [selectedText]);
 
   const audioFormats = [
     { id: 'debater', label: 'Debater', icon: '💬' },
@@ -124,16 +135,14 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
 
   const renderSectionList = (sections: Section[]) => (
     <div className="space-y-3">
-      {sections.map((section) => (
+      {sections.map((section, idx) => (
         <div
-          key={section.id}
+          key={idx}
           className="p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
         >
-          <div className="font-medium text-sm mb-1">{section.title}</div>
-          <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
-            {section.preview}
-          </div>
-          <div className="text-xs text-muted-foreground">{section.source}</div>
+          <div className="font-medium text-sm mb-1">{section.section_title}</div>
+          <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{section.full_path}</div>
+          <div className="text-xs text-muted-foreground">Page: {section.page_number} | Doc: {section.document_name}</div>
           <div className="text-right mt-2">
             <span className="text-2xl">"</span>
           </div>
@@ -186,7 +195,9 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
       <div className="flex-1 overflow-auto custom-scrollbar">
         {activeTab === 'related' ? (
           <div className="p-4">
-            {isLoading ? (
+            {!selectedText ? (
+              <div className="text-muted-foreground italic">Select text from the document to see related sections.</div>
+            ) : isLoadingRelated ? (
               <LoadingText />
             ) : (
               renderSectionList(relatedSections)
@@ -194,7 +205,7 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
           </div>
         ) : (
           <div className="p-4">
-            {isLoading ? (
+            {isLoadingInsights ? (
               <LoadingText />
             ) : (
               <Tabs value={activeInsightTab} onValueChange={(value) => setActiveInsightTab(value as any)}>
@@ -203,18 +214,26 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
                   <TabsTrigger value="enhancements" className="text-xs">Enhancements</TabsTrigger>
                   <TabsTrigger value="connections" className="text-xs">Connections</TabsTrigger>
                 </TabsList>
-                
                 <TabsContent value="contradictions" className="mt-4">
-                  {renderSectionList(aiInsights.contradictions)}
+                  {aiInsights.contradictions.length > 0 ? renderSectionList(aiInsights.contradictions) : <div className="text-muted-foreground italic">No contradictions found.</div>}
                 </TabsContent>
-                
                 <TabsContent value="enhancements" className="mt-4">
-                  {renderSectionList(aiInsights.enhancements)}
+                  {aiInsights.enhancements.length > 0 ? renderSectionList(aiInsights.enhancements) : <div className="text-muted-foreground italic">No enhancements found.</div>}
                 </TabsContent>
-                
                 <TabsContent value="connections" className="mt-4">
-                  {renderSectionList(aiInsights.connections)}
+                  {aiInsights.connections.length > 0 ? renderSectionList(aiInsights.connections) : <div className="text-muted-foreground italic">No connections found.</div>}
                 </TabsContent>
+                {/* Podcast Script Display */}
+                {aiInsights.podcast_script.length > 0 && (
+                  <div className="mt-6">
+                    <div className="font-semibold text-base mb-2">Podcast Script</div>
+                    <div className="space-y-2">
+                      {aiInsights.podcast_script.map((line, idx) => (
+                        <div key={idx} className="text-xs text-muted-foreground"><span className="font-bold">{line.speaker}:</span> {line.line}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Tabs>
             )}
           </div>

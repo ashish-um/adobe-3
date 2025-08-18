@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 import ResizablePanel from "@/components/ResizablePanel";
 import LeftPanel from "@/components/LeftPanel";
 import PDFViewer from "@/components/PDFViewer";
@@ -17,6 +18,7 @@ const Index = () => {
   const [audioFormat, setAudioFormat] = useState<
     "debater" | "investigator" | "fundamentals" | "connections" | null
   >(null);
+  // Removed retrievedSections state; will be handled in LeftPanel
 
   const handleSectionClick = (section: Section) => {
     console.log("Section clicked:", section);
@@ -30,7 +32,6 @@ const Index = () => {
 
   const handleTextSelect = (text: string) => {
     setSelectedText(text);
-    // console.log('Text selected:', text);
   };
 
   const handleAudioFormatSelect = (
@@ -44,8 +45,8 @@ const Index = () => {
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Panel */}
       <ResizablePanel
-        defaultWidth={320}
-        minWidth={280}
+        defaultWidth={340}
+        minWidth={340}
         maxWidth={500}
         position="left"
         collapsible={true}
@@ -53,6 +54,7 @@ const Index = () => {
         <LeftPanel
           onSectionClick={handleSectionClick}
           onDocumentSelect={handleDocumentSelect}
+          selectedText={selectedText}
         />
       </ResizablePanel>
 
