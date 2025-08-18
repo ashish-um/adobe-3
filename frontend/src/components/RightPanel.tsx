@@ -141,6 +141,13 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat }: Ri
           className="p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
         >
           <div className="font-medium text-sm mb-1">{section.section_title}</div>
+          {section.original_content && (
+            <div className="text-xs text-foreground mb-2 line-clamp-3">
+              {section.original_content.length > 120
+                ? section.original_content.slice(0, 120) + '...'
+                : section.original_content}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{section.full_path}</div>
           <div className="text-xs text-muted-foreground">Page: {section.page_number} | Doc: {section.document_name}</div>
           <div className="text-right mt-2">
