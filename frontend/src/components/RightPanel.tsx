@@ -5,18 +5,19 @@ import { Slider } from '@/components/ui/slider';
 import { Play, Pause } from 'lucide-react';
 import LoadingText from './LoadingText';
 
+// Update Section interface to allow empty original_content and flexible fields
 interface Section {
-  bounding_box: {
+  bounding_box?: {
     x0: number;
     x1: number;
     y0: number;
     y1: number;
   };
-  document_name: string;
-  full_path: string;
-  original_content: string;
-  page_number: number;
-  section_title: string;
+  document_name?: string;
+  full_path?: string;
+  original_content?: string;
+  page_number?: number;
+  section_title?: string;
 }
 
 interface RightPanelProps {
@@ -134,6 +135,7 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
     return formatData ? formatData.label : format;
   };
 
+  // Update renderSectionList to handle empty original_content and show all fields
   const renderSectionList = (sections: Section[]) => (
     <div className="space-y-3">
       {sections.map((section, idx) => {
@@ -144,25 +146,29 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
             className="break-all w-full text-left p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
             onClick={() => {
               if (onSectionCardClick && docId) {
-                console.log(docId)
-                const trimmedContent = section.original_content
+                const trimmedContent = section.original_content && section.original_content.trim() !== ''
                   ? section.original_content.slice(0, 30)
-                  : (section.section_title || "");
+                  : (section.section_title || section.full_path || '');
                 onSectionCardClick(docId, trimmedContent);
               }
             }}
             title={section.section_title}
           >
-            <div className="break-all font-medium text-sm mb-1">{section.section_title}</div>
-            {section.original_content && (
+            <div className="break-all font-medium text-sm mb-1">{section.section_title || section.full_path || 'Untitled'}</div>
+            {section.original_content && section.original_content.trim() !== '' ? (
               <div className="text-xs text-foreground mb-2 line-clamp-3">
                 {section.original_content.length > 120
                   ? section.original_content.slice(0, 120) + '...'
                   : section.original_content}
               </div>
-            )}
+            ) : null}
             <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{section.full_path}</div>
             <div className="text-xs text-muted-foreground">Page: {section.page_number} | Doc: {section.document_name}</div>
+            {section.bounding_box && (
+              <div className="text-xs text-muted-foreground mt-1">
+                Bounding Box: x0={section.bounding_box.x0}, x1={section.bounding_box.x1}, y0={section.bounding_box.y0}, y1={section.bounding_box.y1}
+              </div>
+            )}
             <div className="text-right mt-2">
               <span className="text-2xl">"</span>
             </div>

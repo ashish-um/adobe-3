@@ -233,22 +233,7 @@ useEffect(() => {
   return (
     <div className="h-full flex flex-col bg-card">
       {/* PDF Toolbar */}
-      <div className="flex items-center gap-2 p-2">
-        <Input
-          type="text"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Enter search term..."
-          style={{ width: "200px" }}
-        />
-        <button
-          className="px-2 py-1 bg-primary text-white rounded"
-          onClick={handleSearch}
-          disabled={isLoading || !adobeViewer}
-        >
-          <Search size={16} /> Test Search
-        </button>
-      </div>
+      
       <div className="flex items-center justify-between p-[1rem] border-b border-panel-border bg-panel-background">
         <div className="flex items-center gap-4">
           <h2 className="font-medium text-lg">

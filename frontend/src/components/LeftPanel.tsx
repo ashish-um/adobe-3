@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, FileText, Mic, Bookmark } from "lucide-react";
+import { Search, FileText, Mic } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import LoadingText from "./LoadingText";
@@ -34,13 +34,16 @@ interface Section {
 interface LeftPanelProps {
   onSectionClick: (section: Section) => void;
   onDocumentSelect: (documentId: string) => void;
+  selectedDocument?: string;
 }
 
-const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
-  const [activeTab, setActiveTab] = useState<"library" | "saved">("library");
+const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftPanelProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
   // Fetch PDF list from backend
   const fetchDocuments = async () => {
@@ -85,13 +88,15 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
   });
 
   // Handle batch upload
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedFiles || selectedFiles.length === 0) return;
     setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
     const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
+    for (let i = 0; i < selectedFiles.length; i++) {
+      formData.append("files", selectedFiles[i]);
     }
     try {
       const response = await fetch("http://localhost:8000/upload_batch", {
@@ -100,28 +105,25 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
       });
       const data = await response.json();
       if (data.filenames) {
+        // setUploadSuccess("Upload successful!");
         fetchDocuments();
+      } else {
+        setUploadError("Upload failed. Please try again.");
       }
     } catch (error) {
       console.error("Error uploading PDFs:", error);
+      setUploadError("Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
   };
 
-  const savedSections: Section[] = [
-    {
-      id: "s1",
-      title: "Market Analysis Overview",
-      preview:
-        "Comprehensive analysis of market trends and consumer behavior...",
-      source: "Business_Report_2022, Page 12",
-    },
-  ];
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedFiles(event.target.files);
+    setUploadError(null);
+    setUploadSuccess(null);
+  };
 
-
-
-  
   const getDocumentIcon = (type: string) => {
     switch (type) {
       case "business":
@@ -133,80 +135,69 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
     }
   };
 
-  return (
-    <div className="h-full flex flex-col panel border-r">
-      {/* Upload PDFs */}
-      <div className="p-4 border-b border-panel-border flex items-center gap-4">
+  // Example prettified document upload section
+  const renderDocumentUpload = () => (
+    <div className="p-2 border-b bg-card flex flex-col gap-2 min-w-0">
+      <form className="flex flex-wrap gap-2 items-center min-w-0" onSubmit={handleUpload}>
         <input
           type="file"
           accept="application/pdf"
           multiple
-          onChange={handleUpload}
-          disabled={uploading}
+          className="border rounded px-3 py-2 text-sm bg-background flex-1 min-w-0"
+          onChange={handleFileChange}
+          style={{ maxWidth: '380px' }}
         />
-        {uploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
-      </div>
+        <button
+          type="submit"
+          // px-3 py-1 rounded bg-muted text-foreground hover:bg-muted/80 transition text-xs font-medium flex-shrink-0 shadow-none border border-border
+          className="px-4 py-2 bg-muted text-foreground rounded hover:bg-muted/10 transition shadow-none border border-border"
+        >
+          Upload
+        </button>
+      </form>
+      {uploadError && <div className="text-red-500 text-xs mt-2">{uploadError}</div>}
+      {uploadSuccess && <div className="text-green-600 text-xs mt-2">{uploadSuccess}</div>}
+    </div>
+  );
+
+  return (
+    <div className="h-full flex flex-col panel border-r">
+      {/* Upload PDFs */}
+      {renderDocumentUpload()}
 
       {/* Tab Headers */}
       <div className="flex border-b border-panel-border">
         <button
-          onClick={() => setActiveTab("library")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-            activeTab === "library"
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative`}
         >
           Library
-          {activeTab === "library" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("saved")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-            activeTab === "saved"
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Saved
-          {activeTab === "saved" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-          )}
+          
         </button>
       </div>
 
-      {/* Search */}
-      <div className="p-4 border-b border-panel-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={`Search your ${activeTab}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-          <Mic className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        </div>
-      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto custom-scrollbar">
-        {activeTab === "library" ? (
-          <div className="p-4 space-y-4">
-            {documents.map((doc) => (
-              <div key={doc.id} className="space-y-2 flex items-center">
-                <button
-                  onClick={() => onDocumentSelect(doc.id)}
-                  className="flex items-center gap-3 flex-1 p-3 rounded-lg hover:bg-sidebar-hover transition-colors text-left"
-                >
-                  {getDocumentIcon(doc.type)}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate max-w-[180px]" title={doc.name}>
-                      {doc.name.length > 32 ? doc.name.slice(0, 29) + '...' : doc.name}
-                    </div>
+        <div className="p-4 space-y-4">
+          {uploading && (
+            <div className="mb-4 flex items-center gap-2 text-primary text-sm">
+              <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+              Uploading documents...
+            </div>
+          )}
+          {documents.map((doc) => (
+            <div key={doc.id} className="space-y-2 flex items-center">
+              <button
+                onClick={() => onDocumentSelect(doc.id)}
+                className={`flex items-center gap-3 flex-1 p-3 rounded-lg hover:bg-sidebar-hover transition-colors text-left ${doc.id === selectedDocument ? 'bg-primary/10 border border-primary' : ''}`}
+                style={doc.id === selectedDocument ? { fontWeight: 'bold' } : {}}
+              >
+                {getDocumentIcon(doc.type)}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate max-w-[180px]" title={doc.name}>
+                    {doc.name.length > 32 ? doc.name.slice(0, 29) + '...' : doc.name}
                   </div>
+                </div>
                 <button
                   className="ml-2 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
                   title="Delete document"
@@ -232,81 +223,48 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect }: LeftPanelProps) => {
                 >
                   Delete
                 </button>
-                </button>
+              </button>
 
-                {/* Related Sections for this document */}
-                {doc.sections && doc.sections.length > 0 && (
-                  <div className="ml-6 space-y-2">
-                    {doc.sections.map((section, idx) => (
-                      <button
-                        key={idx}
-                        className="w-full p-3 text-left bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
-                        onClick={() => onSectionClick({
-                          ...section,
-                          document_name: doc.id,
-                        })}
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <div className="font-medium text-xs mb-1">
-                            {section.section_title || section.title}
-                          </div>
-                          {section.original_content && section.original_content.trim() !== '' && (
-                            <div className="text-xs text-foreground mb-2 line-clamp-3">
-                              {section.original_content.length > 120
-                                ? section.original_content.slice(0, 120) + '...'
-                                : section.original_content}
-                            </div>
-                          )}
-                          <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                            {section.full_path || section.preview}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {section.page_number !== undefined ? `Page: ${section.page_number}` : ''}
-                          </div>
-                          <div className="text-right mt-2">
-                            <span className="text-2xl">"</span>
-                          </div>
+              {/* Related Sections for this document */}
+              {doc.sections && doc.sections.length > 0 && (
+                <div className="ml-6 space-y-2">
+                  {doc.sections.map((section, idx) => (
+                    <button
+                      key={idx}
+                      className="w-full p-3 text-left bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
+                      onClick={() => onSectionClick({
+                        ...section,
+                        document_name: doc.id,
+                      })}
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <div className="font-medium text-xs mb-1">
+                          {section.section_title || section.title}
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4 space-y-3">
-            {savedSections.length > 0 ? (
-              savedSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => onSectionClick(section)}
-                  className="w-full p-3 text-left bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200"
-                >
-                  <div className="flex items-start gap-2">
-                    <Bookmark className="w-4 h-4 mt-1 text-primary flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm mb-1">
-                        {section.title}
+                        {section.original_content && section.original_content.trim() !== '' && (
+                          <div className="text-xs text-foreground mb-2 line-clamp-3">
+                            {section.original_content.length > 120
+                              ? section.original_content.slice(0, 120) + '...'
+                              : section.original_content}
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                          {section.full_path || section.preview}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {section.page_number !== undefined ? `Page: ${section.page_number}` : ''}
+                        </div>
+                        <div className="text-right mt-2">
+                          <span className="text-2xl">"</span>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        {section.preview}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {section.source}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Bookmark className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No saved sections yet</p>
-              </div>
-            )}
-          </div>
-        )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

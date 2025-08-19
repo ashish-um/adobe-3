@@ -66,6 +66,7 @@ const Index = () => {
         <LeftPanel
           onSectionClick={handleSectionClick}
           onDocumentSelect={handleDocumentSelect}
+          selectedDocument={selectedDocument}
         />
       </ResizablePanel>
 
