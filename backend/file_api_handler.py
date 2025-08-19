@@ -14,7 +14,7 @@ load_dotenv()
 # --- Configuration ---
 # Ensure your GOOGLE_API_KEY is set in your .env file or environment
 genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
-GENERATION_MODEL = "gemini-1.5-flash" # As specified in the docs
+GENERATION_MODEL = "gemini-2.5-flash" # As specified in the docs
 
 # This is the powerful, all-in-one prompt for Gemini
 INSIGHTS_PROMPT_TEMPLATE = """

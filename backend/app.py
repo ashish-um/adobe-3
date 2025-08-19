@@ -87,6 +87,31 @@ async def upload_batch():
     except Exception as e:
         return jsonify({"error": f"Indexing error: {e}"}), 500
 
+from generate_podcast import generate_podcast
+import uuid
+
+# --- Podcast Generation Endpoint ---
+@flask_app.route('/generate_podcast', methods=['POST'])
+@time_request
+async def generate_podcast_endpoint():
+    data = request.get_json()
+    if not data or not isinstance(data, list):
+        return jsonify({"error": "Request body must be a JSON array of strings."}), 400
+    # Assign voices: even indexes 'fable', odd indexes 'nova'
+    conversation = []
+    for idx, text in enumerate(data):
+        voice = 'fable' if idx % 2 == 0 else 'nova'
+        speaker = 'Speaker' if voice == 'fable' else 'Host'
+        conversation.append((speaker, text, voice))
+    # Generate a unique filename for each request
+    output_file = f"podcast_{uuid.uuid4().hex}.mp3"
+    output_path = os.path.join("pdfs", output_file)
+    try:
+        await generate_podcast(conversation, output_file=output_path)
+        return jsonify({"audio_path": output_path}), 200
+    except Exception as e:
+        return jsonify({"error": f"Podcast generation failed: {e}"}), 500
+
 @flask_app.route('/get_retrieved_sections', methods=['POST'])
 @time_request
 async def get_retrieved_sections():
@@ -113,7 +138,7 @@ async def get_retrieved_sections():
 @time_request
 async def get_generated_insights():
     """
-    DEEP ENDPOINT: Uses the more comprehensive multi-query method for the best AI context.
+    DEEP ENDPOINT: Uses the parallelized method to generate all text insights.
     """
     if not retrieval_handler:
         return jsonify({"error": "Backend handler not initialized."}), 500
@@ -130,24 +155,26 @@ async def get_generated_insights():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
+# *** UPDATED: This endpoint now generates all 4 persona podcasts at once ***
 @flask_app.route('/get_persona_podcast', methods=['POST'])
 @time_request
 async def get_persona_podcast():
     """
-    ON-DEMAND ENDPOINT: Generates a new podcast script for a specific persona.
+    PODCAST ENDPOINT: Generates all 4 persona podcasts in a single parallel call.
     """
     if not retrieval_handler:
         return jsonify({"error": "Backend handler not initialized."}), 500
     data = request.get_json()
-    if not data or 'selection' not in data or 'persona' not in data:
-        return jsonify({"error": "Missing 'selection' or 'persona' key."}), 400
+    # Now only checks for the 'selection' key
+    if not data or 'selection' not in data:
+        return jsonify({"error": "Missing 'selection' key."}), 400
         
-    user_selection = data['selection']
-    persona = data['persona']
-    print(f"\nReceived on-demand podcast request for persona '{persona}'")
+    selection = data['selection']
+    print(f"\nReceived parallel podcast generation request for: '{selection[:50]}...'")
     
     try:
-        llm_response = await retrieval_handler.generate_persona_podcast_async(user_selection, persona)
+        # The handler function now only needs the selection text
+        llm_response = await retrieval_handler.generate_persona_podcast_async(selection)
         return jsonify(llm_response)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
@@ -192,14 +219,5 @@ def delete_document():
         return jsonify({"error": f"Could not delete {document_name}: {e}"}), 500
 
 
-
-
-
-
-
-
-
 # --- ASGI Wrapper ---
 app = WsgiToAsgi(flask_app)
-
-

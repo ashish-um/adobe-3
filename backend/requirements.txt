@@ -12,3 +12,6 @@ werkzeug
 uvicorn[standard]
 asgiref
 sentence-transformers
+aiohttp
+pydub
+requests

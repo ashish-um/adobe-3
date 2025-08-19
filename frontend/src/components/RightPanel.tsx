@@ -35,6 +35,16 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(60);
 
+  // Related sections and AI insights from API
+  const [relatedSections, setRelatedSections] = useState<Section[]>([]);
+  const [aiInsights, setAiInsights] = useState<{ contradictions: Section[]; enhancements: Section[]; connections: Section[]; podcast_script: { line: string; speaker: string }[] }>({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  
+  // New state for podcast data and loading
+  const [podcastData, setPodcastData] = useState<any>(null);
+  const [isPodcastLoading, setIsPodcastLoading] = useState(false);
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying) {
@@ -52,20 +62,18 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
     return () => clearInterval(interval);
   }, [isPlaying, duration]);
 
-  // Related sections and AI insights from API
-  const [relatedSections, setRelatedSections] = useState<Section[]>([]);
-  const [aiInsights, setAiInsights] = useState<{ contradictions: Section[]; enhancements: Section[]; connections: Section[]; podcast_script: { line: string; speaker: string }[] }>({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
-  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
-  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
-
   useEffect(() => {
     if (!selectedText) {
       setRelatedSections([]);
       setAiInsights({ contradictions: [], enhancements: [], connections: [], podcast_script: [] });
+      setPodcastData(null); // Clear podcast data when no text is selected
       return;
     }
+    
     setIsLoadingRelated(true);
     setIsLoadingInsights(true);
+    setPodcastData(null); // Clear previous podcast data
+    
     // Fetch related sections
     const fetchRelated = async () => {
       try {
@@ -83,6 +91,7 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
         setIsLoadingRelated(false);
       }
     };
+    
     // Fetch AI insights
     const fetchInsights = async () => {
       try {
@@ -105,9 +114,38 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
         setIsLoadingInsights(false);
       }
     };
+
     fetchRelated();
     fetchInsights();
   }, [selectedText]);
+
+  // New effect to fetch podcast data when both related sections and insights are loaded
+  useEffect(() => {
+    const shouldFetchPodcast = selectedText && !isLoadingRelated && !isLoadingInsights;
+    
+    if (shouldFetchPodcast && !podcastData && !isPodcastLoading) {
+      const fetchPodcastData = async () => {
+        setIsPodcastLoading(true);
+        try {
+          const response = await fetch("http://localhost:8000/get_persona_podcast", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selection: selectedText })
+          });
+          const data = await response.json();
+          setPodcastData(data);
+          console.log('Podcast data fetched:', data);
+        } catch (error) {
+          console.error("Error fetching podcast data:", error);
+          setPodcastData(null);
+        } finally {
+          setIsPodcastLoading(false);
+        }
+      };
+
+      fetchPodcastData();
+    }
+  }, [selectedText, isLoadingRelated, isLoadingInsights, podcastData, isPodcastLoading]);
 
   const audioFormats = [
     { id: 'debater', label: 'Debater', icon: '💬' },
@@ -134,6 +172,19 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
     const formatData = audioFormats.find(f => f.id === format);
     return formatData ? formatData.label : format;
   };
+
+  // Updated podcast click handler to use stored data
+  const handlePodcastClick = (persona: string) => {
+    if (podcastData && podcastData[persona]) {
+      console.log(`Podcast for ${persona}:`, podcastData[persona]);
+      onAudioFormatSelect(persona as any);
+      // Here you can do whatever you need with the stored podcast data
+      // For example, set up the audio player, display content, etc.
+    }
+  };
+
+  // Check if podcast buttons should be disabled
+  const arePodcastButtonsDisabled = isLoadingRelated || isLoadingInsights || isPodcastLoading || !podcastData;
 
   // Update renderSectionList to handle empty original_content and show all fields
   const renderSectionList = (sections: Section[]) => (
@@ -276,14 +327,24 @@ const RightPanel = ({ selectedText, onAudioFormatSelect, activeAudioFormat, onSe
               key={format.id}
               variant="outline"
               size="sm"
-              onClick={() => onAudioFormatSelect(format.id as any)}
+              onClick={() => handlePodcastClick(format.id)}
               className="flex items-center gap-2 h-auto p-3"
+              disabled={arePodcastButtonsDisabled}
             >
               <span className="text-lg">{format.icon}</span>
               <span className="text-xs">{format.label}</span>
+              {isPodcastLoading && (
+                <span className="ml-2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+              )}
             </Button>
           ))}
         </div>
+        {/* Loading indicator for podcast data */}
+        {isPodcastLoading && (
+          <div className="mt-2 text-xs text-muted-foreground text-center">
+            Loading podcast data...
+          </div>
+        )}
       </div>
 
       {/* Audio Player */}
