@@ -15,3 +15,4 @@ sentence-transformers
 aiohttp
 pydub
 requests
+flask_cors
