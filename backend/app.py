@@ -12,6 +12,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from asgiref.wsgi import WsgiToAsgi
+import json
 
 # Import our core application logic
 from indexing_pipeline import IndexingPipeline
@@ -218,6 +219,16 @@ def delete_document():
     except Exception as e:
         return jsonify({"error": f"Could not delete {document_name}: {e}"}), 500
 
+@flask_app.route('/config.js')
+def runtime_config():
+    """Serves runtime configuration variables to the frontend."""
+    config = {
+        'VITE_ADOBE_CLIENT_ID': os.environ.get('VITE_ADOBE_CLIENT_ID', '')
+    }
+    # Return as a JS file that creates a global object on the window
+    js_payload = f"window.runtimeConfig = {json.dumps(config)};"
+    print(js_payload)
+    return js_payload, 200, {'Content-Type': 'application/javascript'}
 
 # --- ASGI Wrapper ---
 app = WsgiToAsgi(flask_app)

@@ -18,7 +18,11 @@ declare global {
   }
 }
 
-const PDFViewer = ({ documentId, onTextSelect, searchOnLoad }: PDFViewerProps) => {
+const PDFViewer = ({
+  documentId,
+  onTextSelect,
+  searchOnLoad,
+}: PDFViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [adobeViewer, setAdobeViewer] = useState<any>(null);
@@ -44,7 +48,7 @@ const PDFViewer = ({ documentId, onTextSelect, searchOnLoad }: PDFViewerProps) =
   }, [debouncedSelection, onTextSelect]);
   // --- DEBOUNCE LOGIC END ---
 
-  const ADOBE_CLIENT_ID = import.meta.env.VITE_ADOBE_CLIENT_ID;
+  const ADOBE_CLIENT_ID = (window as any).runtimeConfig.VITE_ADOBE_CLIENT_ID;
 
   useEffect(() => {
     // This effect handles loading the Adobe script
@@ -74,28 +78,31 @@ const PDFViewer = ({ documentId, onTextSelect, searchOnLoad }: PDFViewerProps) =
     };
   }, []); // Run only once
 
-// Only reload PDF when documentId changes
-useEffect(() => {
-  if (documentId && window.AdobeDC && viewerRef.current) {
-    loadPDF();
-  }
-}, [documentId]);
+  // Only reload PDF when documentId changes
+  useEffect(() => {
+    if (documentId && window.AdobeDC && viewerRef.current) {
+      loadPDF();
+    }
+  }, [documentId]);
 
-// When searchOnLoad changes and PDF is loaded, trigger search in the open PDF
-useEffect(() => {
-  if (searchOnLoad && searchOnLoad.trim() && adobeViewer) {
-    setSearchTerm(searchOnLoad);
-    adobeViewer.getAPIs().then((apis: any) => {
-      if (apis.search) {
-        apis.search(searchOnLoad).then((result: any) => {
-          console.log("Auto-search result (no reload):", result);
-        }).catch((error: any) => {
-          console.error("Auto-search error (no reload):", error);
-        });
-      }
-    });
-  }
-}, [searchOnLoad]);
+  // When searchOnLoad changes and PDF is loaded, trigger search in the open PDF
+  useEffect(() => {
+    if (searchOnLoad && searchOnLoad.trim() && adobeViewer) {
+      setSearchTerm(searchOnLoad);
+      adobeViewer.getAPIs().then((apis: any) => {
+        if (apis.search) {
+          apis
+            .search(searchOnLoad)
+            .then((result: any) => {
+              console.log("Auto-search result (no reload):", result);
+            })
+            .catch((error: any) => {
+              console.error("Auto-search error (no reload):", error);
+            });
+        }
+      });
+    }
+  }, [searchOnLoad]);
 
   const loadPDF = async () => {
     if (!viewerRef.current || !documentId) return;
@@ -116,7 +123,9 @@ useEffect(() => {
       });
 
       // Use the selected documentId as the PDF filename, loading from backend static route
-      const pdfUrl = documentId ? `http://localhost:8000/pdfs/${documentId}` : "test.pdf";
+      const pdfUrl = documentId
+        ? `http://localhost:8000/pdfs/${documentId}`
+        : "test.pdf";
 
       const previewFilePromise = adobeDCView.previewFile(
         {
@@ -149,17 +158,23 @@ useEffect(() => {
           setTimeout(() => {
             viewer.getAPIs().then((apis: any) => {
               if (apis.search) {
-                apis.search(searchOnLoad).then((result: any) => {
-                  console.log("Auto-search result:", result);
-                  const matches = result && Array.isArray(result.matches) ? result.matches : [];
-                  // if (matches.length > 0) {
-                  //   alert(`Found ${matches.length} matches for '${searchOnLoad}'`);
-                  // } else {
-                  //   alert(`No matches found for '${searchOnLoad}'`);
-                  // }
-                }).catch((error: any) => {
-                  console.error("Auto-search error:", error);
-                });
+                apis
+                  .search(searchOnLoad)
+                  .then((result: any) => {
+                    console.log("Auto-search result:", result);
+                    const matches =
+                      result && Array.isArray(result.matches)
+                        ? result.matches
+                        : [];
+                    // if (matches.length > 0) {
+                    //   alert(`Found ${matches.length} matches for '${searchOnLoad}'`);
+                    // } else {
+                    //   alert(`No matches found for '${searchOnLoad}'`);
+                    // }
+                  })
+                  .catch((error: any) => {
+                    console.error("Auto-search error:", error);
+                  });
               }
             });
           }, 500); // slight delay to ensure PDF is rendered
@@ -210,7 +225,8 @@ useEffect(() => {
             .then((result: any) => {
               console.log("Search result:", result);
               // Adobe PDF Embed API returns { matches: [...] }
-              const matches = result && Array.isArray(result.matches) ? result.matches : [];
+              const matches =
+                result && Array.isArray(result.matches) ? result.matches : [];
               // if (matches.length > 0) {
               //   alert(`Found ${matches.length} matches for '${searchTerm}'`);
               // } else {
@@ -233,7 +249,7 @@ useEffect(() => {
   return (
     <div className="h-full flex flex-col bg-card">
       {/* PDF Toolbar */}
-      
+
       <div className="flex items-center justify-between p-[1rem] border-b border-panel-border bg-panel-background">
         <div className="flex items-center gap-4">
           <h2 className="font-medium text-lg">

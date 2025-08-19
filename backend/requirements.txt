@@ -16,3 +16,4 @@ aiohttp
 pydub
 requests
 flask_cors
+gunicorn
