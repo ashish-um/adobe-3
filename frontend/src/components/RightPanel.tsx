@@ -114,15 +114,16 @@ const RightPanel = ({
     }
 
     setIsLoadingRelated(true);
-    setIsLoadingInsights(true);
+    setIsLoadingInsights(false); // Don't start insights loading yet
     setPodcastData(null); // Clear previous podcast data
     setAudioUrl(null); // Clear previous audio
     setIsPlaying(false); // Stop playing
 
-    // Fetch related sections
-    const fetchRelated = async () => {
+    // Fetch related sections first, then insights and podcast
+    const fetchAll = async () => {
       try {
-        const response = await fetch(
+        // Always fetch related sections first
+        const relatedRes = await fetch(
           "http://localhost:8000/get_retrieved_sections",
           {
             method: "POST",
@@ -130,49 +131,56 @@ const RightPanel = ({
             body: JSON.stringify({ selection: selectedText }),
           }
         );
-        const data = await response.json();
-        setRelatedSections(data.retrieved_sections || []);
+        const relatedData = await relatedRes.json();
+        setRelatedSections(relatedData.retrieved_sections || []);
       } catch (error) {
         console.error("Error retrieving sections:", error);
         setRelatedSections([]);
       } finally {
         setIsLoadingRelated(false);
       }
-    };
 
-    // Fetch AI insights
-    const fetchInsights = async () => {
+      // Now fetch insights and podcast in parallel
+      setIsLoadingInsights(true);
+      let insightsData = null;
+      let podcastDataResp = null;
       try {
-        const response = await fetch(
-          "http://localhost:8000/get_generated_insights",
-          {
+        const [insightsRes, podcastRes] = await Promise.all([
+          fetch("http://localhost:8000/get_generated_insights", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ selection: selectedText }),
-          }
-        );
-        const data = await response.json();
+          }),
+          fetch("http://localhost:8000/get_persona_podcast", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selection: selectedText }),
+          })
+        ]);
+        insightsData = await insightsRes.json();
+        podcastDataResp = await podcastRes.json();
         setAiInsights({
-          contradictions: data.contradictions || [],
-          enhancements: data.enhancements || [],
-          connections: data.connections || [],
-          podcast_script: data.podcast_script || [],
+          contradictions: insightsData.contradictions || [],
+          enhancements: insightsData.enhancements || [],
+          connections: insightsData.connections || [],
+          podcast_script: insightsData.podcast_script || [],
         });
+        setPodcastData(podcastDataResp);
       } catch (error) {
-        console.error("Error retrieving insights:", error);
+        console.error("Error retrieving insights or podcast:", error);
         setAiInsights({
           contradictions: [],
           enhancements: [],
           connections: [],
           podcast_script: [],
         });
+        setPodcastData(null);
       } finally {
         setIsLoadingInsights(false);
       }
     };
 
-    fetchRelated();
-    fetchInsights();
+    fetchAll();
   }, [selectedText]);
 
   // New effect to fetch podcast data when both related sections and insights are loaded
@@ -350,6 +358,52 @@ const RightPanel = ({
     </div>
   );
 
+  // Loading bar component
+  const LoadingBar = () => (
+    <div className="w-full h-1 bg-muted/40 rounded overflow-hidden mb-4">
+      <div className="h-full bg-primary animate-pulse" style={{ width: '60%' }}></div>
+    </div>
+  );
+
+  // Loading spinner component
+  const LoadingSpinner = () => (
+    <span className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2 block mx-auto" />
+  );
+
+  // Loading spinner and animated loading text
+  const relatedLoadingMessages = [
+    "Finding best sections...",
+    "Filtering out unwanted sections...",
+    "Connecting the dots..."
+  ];
+  const insightsLoadingMessages = [
+    "Making LLM call...",
+    "Analysis by LLM...",
+    "LLM crafting a response...",
+    "Connecting the dots..."
+  ];
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (isLoadingRelated) {
+      setLoadingMsgIdx(0);
+      timer = setInterval(() => {
+        setLoadingMsgIdx((prev) => (prev + 1) % relatedLoadingMessages.length);
+      }, 3000);
+    } else if (isLoadingInsights) {
+      setLoadingMsgIdx(0);
+      timer = setInterval(() => {
+        setLoadingMsgIdx((prev) => (prev + 1) % insightsLoadingMessages.length);
+      }, 3000);
+    } else {
+      setLoadingMsgIdx(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isLoadingRelated, isLoadingInsights]);
+
   return (
     <div className="h-full flex flex-col panel border-l">
       {/* Hidden audio element for playback */}
@@ -421,7 +475,10 @@ const RightPanel = ({
                 Select text from the document to see related sections.
               </div>
             ) : isLoadingRelated ? (
-              <LoadingText />
+              <div className="flex flex-col items-center justify-center mb-4">
+                <LoadingSpinner />
+                <span className="text-sm text-muted-foreground">{relatedLoadingMessages[loadingMsgIdx]}</span>
+              </div>
             ) : (
               renderSectionList(relatedSections)
             )}
@@ -429,7 +486,10 @@ const RightPanel = ({
         ) : (
           <div className="p-4">
             {isLoadingInsights ? (
-              <LoadingText />
+              <div className="flex flex-col items-center justify-center mb-4">
+                <LoadingSpinner />
+                <span className="text-sm text-muted-foreground">{insightsLoadingMessages[loadingMsgIdx]}</span>
+              </div>
             ) : (
               <Tabs
                 value={activeInsightTab}
@@ -500,7 +560,7 @@ const RightPanel = ({
 
       {/* Audio Format Selection */}
       <div className="p-4 border-t border-panel-border">
-        <h3 className="font-medium text-sm mb-3">Choose Audio Format</h3>
+        <h3 className="font-medium text-sm mb-3">Choose Podcast Format</h3>
         <div className="grid grid-cols-2 gap-2">
           {audioFormats.map((format) => (
             <Button

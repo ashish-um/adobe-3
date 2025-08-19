@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, FileText, Mic, Trash2 } from "lucide-react";
+import { Search, FileText, Mic, Trash2, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import LoadingText from "./LoadingText";
@@ -44,6 +44,7 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Fetch PDF list from backend
   const fetchDocuments = async () => {
@@ -145,11 +146,11 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
 
   // Upload progress steps
   const uploadSteps = [
-    "Uploading document(s)...",
-    "Parsing document(s)...",
-    "Generating embeddings...",
-    "Creating ChromaDB database...",
-    "Storing vector data...",
+    "Yeeting files into the cloud!",
+    "Chopping docs like a word ninja!",
+    "Turning text into mathy gibberish!",
+    "Building a disco den for data!",
+    "Cramming vectors into a cosmic vault!",
     "Connecting the dots..."
   ];
   const [uploadStep, setUploadStep] = useState(0);
@@ -171,7 +172,7 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
         } else {
           clearInterval(stepInterval);
         }
-      }, 2000);
+      }, 3500);
       // Actual upload
       (async () => {
         const formData = new FormData();
@@ -249,11 +250,14 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
                   </div>
                 </div>
                 <button
-                  className="p-1 text-xs text-red-400  rounded hover:bg-red-200 flex"
+                  className={`ml-2 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 flex items-center gap-1 ${confirmDeleteId === doc.id ? 'bg-green-100 font-bold' : ''}`}
                   title="Delete document"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    if (!window.confirm(`Delete ${doc.name}? This cannot be undone.`)) return;
+                    if (confirmDeleteId !== doc.id) {
+                      setConfirmDeleteId(doc.id);
+                      return;
+                    }
                     try {
                       const response = await fetch("http://localhost:8000/delete_document", {
                         method: "POST",
@@ -263,15 +267,17 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
                       const data = await response.json();
                       if (!data.error) {
                         fetchDocuments();
-                      } else {
-                        alert("Delete failed: " + data.error);
                       }
                     } catch (err) {
-                      alert("Delete failed: " + err);
                     }
+                    setConfirmDeleteId(null);
                   }}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {confirmDeleteId === doc.id ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </button>
 
