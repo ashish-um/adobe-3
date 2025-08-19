@@ -10,27 +10,21 @@ This application is containerized for easy setup and deployment. Ensure you have
 
 Navigate to the root directory of the project and run the following command to build the Docker image. This process will bundle the frontend, backend, and all necessary dependencies.
 
-docker build \-t my-app .
-
+```
+docker build -t my-app .
+```
 ### **2\. Run the Docker Container**
 
 Once the image is built, run the container using the command below. You must replace the placeholder values with your actual API keys and service endpoints.
 
 **ADOBE\_EMBED\_API\_KEY:**  
-VITE\_ADOBE\_CLIENT\_ID="1a27f057ace94416b2fd19b3d35ab3f4"
+`VITE_ADOBE_CLIENT_ID="1a27f057ace94416b2fd19b3d35ab3f4"`
 
 The application's frontend will be accessible at http://localhost:8080, and the backend API will be available at http://localhost:8000.
 
-docker run \\  
-  \-e GOOGLE\_API\_KEY="Your Gemini API key" \\  
-  \-e AZURE\_TTS\_KEY="Your Azure TTS Key" \\  
-  \-e AZURE\_TTS\_ENDPOINT="Your Azure TTS Endpoint" \\  
-  \-e AZURE\_TTS\_DEPLOYMENT="tts" \\  
-  \-e AZURE\_TTS\_API\_VERSION="2025-03-01-preview" \\  
-  \-e VITE\_ADOBE\_CLIENT\_ID="1a27f057ace94416b2fd19b3d35ab3f4" \\  
-  \-p 8080:8080 \\  
-  \-p 8000:8000 \\  
-  my-app
+```
+docker run -e GOOGLE_API_KEY="Your Gemini API key" -e AZURE_TTS_KEY="Your Azure TTS Key" -e AZURE_TTS_ENDPOINT="Your Azure TTS Endpoint" -e AZURE_TTS_DEPLOYMENT="tts" -e AZURE_TTS_API_VERSION="2025-03-01-preview" -e VITE_ADOBE_CLIENT_ID="1a27f057ace94416b2fd19b3d35ab3f4" -p 8080:8080 -p 8000:8000 my-app
+```
 
 Now, you can open your web browser and navigate to http://localhost:8080 to start using the application.
 
@@ -47,8 +41,8 @@ Now, you can open your web browser and navigate to http://localhost:8080 to star
 | Category | Technology |
 | :---- | :---- |
 | **Frontend** | [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), [Adobe PDF Embed API](https://developer.adobe.com/document-services/docs/overview/pdf-embed-api/) |
-| **Backend** | [Python 3.10+](https://www.python.org/), [Flask](https://flask.palletsprojects.com/) |
-| **AI / ML** | [Sentence Transformers](https://www.sbert.net/), [Scikit-learn](https://scikit-learn.org/), [PyMuPDF](https://pymupdf.readthedocs.io/) |
+| **Backend** | [Python 3.12+](https://www.python.org/), [Flask](https://flask.palletsprojects.com/) |
+| **AI / ML** | [Sentence Transformers](https://www.sbert.net/), [Scikit-learn](https://scikit-learn.org/), [PyMuPDF](https://pymupdf.readthedocs.io/), LightGBM |
 | **Vector Database** | [ChromaDB](https://www.trychroma.com/) |
 | **LLM & TTS** | Google Gemini-2.5-flash, Azure OpenAI TTS |
 | **Containerization** | [Docker](https://www.docker.com/), [Supervisor](http://supervisord.org/) |
