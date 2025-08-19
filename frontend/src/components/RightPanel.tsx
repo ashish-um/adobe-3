@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, FileText } from "lucide-react";
 import LoadingText from "./LoadingText";
 
 // Update Section interface to allow empty original_content and flexible fields
@@ -76,6 +76,9 @@ const RightPanel = ({
 
   // Track which persona is currently generating audio
   const [loadingPersona, setLoadingPersona] = useState<string | null>(null);
+
+  // Add state for transcript
+  const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -566,7 +569,25 @@ const RightPanel = ({
                 {formatTime(duration)}
               </span>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-2 flex items-center justify-center"
+              onClick={() => setShowTranscript((prev) => !prev)}
+              title={showTranscript ? "Hide Transcript" : "Get Transcript"}
+            >
+              <FileText className="w-4 h-4" />
+            </Button>
           </div>
+          {showTranscript && podcastData && podcastData[activeAudioFormat] && (
+            <div className="mt-4 p-3 bg-muted rounded text-xs max-h-48 overflow-y-auto custom-scrollbar">
+              {podcastData[activeAudioFormat].map((line: string, idx: number) => (
+                <div key={idx} className="mb-2">
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
