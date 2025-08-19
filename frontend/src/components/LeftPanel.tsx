@@ -118,10 +118,87 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
     }
   };
 
+  // Minimal document upload section, simple full-width file picker
+  const renderDocumentUpload = () => (
+    <div className="p-3 border-b bg-card flex flex-col gap-2 min-w-0 rounded-b-md">
+      <form className="flex flex-col sm:flex-row gap-2 items-center min-w-0 w-full" onSubmit={e => e.preventDefault()}>
+        <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-primary w-full">
+          <input
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <span className="px-4 py-2 w-full text-center bg-muted text-foreground rounded-lg border border-border font-semibold text-xs tracking-wide">
+            Choose PDFs
+          </span>
+        </label>
+      </form>
+      {selectedFiles && selectedFiles.length > 0 && (
+        <div className="text-xs text-muted-foreground mt-1">{selectedFiles.length} file(s) selected</div>
+      )}
+      {uploadError && <div className="text-red-500 text-xs mt-2">{uploadError}</div>}
+      {uploadSuccess && <div className="text-green-600 text-xs mt-2">{uploadSuccess}</div>}
+    </div>
+  );
+
+  // Upload progress steps
+  const uploadSteps = [
+    "Uploading document(s)...",
+    "Parsing document(s)...",
+    "Generating embeddings...",
+    "Creating ChromaDB database...",
+    "Storing vector data...",
+    "Connecting the dots..."
+  ];
+  const [uploadStep, setUploadStep] = useState(0);
+
+  // Modified handleFileChange to show stepwise progress with 1s delay, independent of actual upload
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedFiles(event.target.files);
     setUploadError(null);
     setUploadSuccess(null);
+    if (event.target.files && event.target.files.length > 0) {
+      setUploading(true);
+      setUploadStep(0);
+      // Animate step text
+      let step = 0;
+      const stepInterval = setInterval(() => {
+        step++;
+        if (step < uploadSteps.length) {
+          setUploadStep(step);
+        } else {
+          clearInterval(stepInterval);
+        }
+      }, 2000);
+      // Actual upload
+      (async () => {
+        const formData = new FormData();
+        for (let i = 0; i < event.target.files.length; i++) {
+          formData.append("files", event.target.files[i]);
+        }
+        try {
+          const response = await fetch("http://localhost:8000/upload_batch", {
+            method: "POST",
+            body: formData
+          });
+          const data = await response.json();
+          if (data.filenames) {
+            fetchDocuments();
+            setUploadSuccess("Upload successful!");
+          } else {
+            setUploadError("Upload failed. Please try again.");
+          }
+        } catch (error) {
+          setUploadError("Upload failed. Please try again.");
+        } finally {
+          setUploading(false);
+          setUploadStep(0);
+          clearInterval(stepInterval);
+        }
+      })();
+    }
   };
 
   const getDocumentIcon = (type: string) => {
@@ -134,31 +211,6 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
         return <FileText className="w-4 h-4 text-gray-500" />;
     }
   };
-
-  // Example prettified document upload section
-  const renderDocumentUpload = () => (
-    <div className="p-2 border-b bg-card flex flex-col gap-2 min-w-0">
-      <form className="flex flex-wrap gap-2 items-center min-w-0" onSubmit={handleUpload}>
-        <input
-          type="file"
-          accept="application/pdf"
-          multiple
-          className="border rounded px-3 py-2 text-sm bg-background flex-1 min-w-0"
-          onChange={handleFileChange}
-          style={{ maxWidth: '380px' }}
-        />
-        <button
-          type="submit"
-          // px-3 py-1 rounded bg-muted text-foreground hover:bg-muted/80 transition text-xs font-medium flex-shrink-0 shadow-none border border-border
-          className="px-4 py-2 bg-muted text-foreground rounded hover:bg-muted/10 transition shadow-none border border-border"
-        >
-          Upload
-        </button>
-      </form>
-      {uploadError && <div className="text-red-500 text-xs mt-2">{uploadError}</div>}
-      {uploadSuccess && <div className="text-green-600 text-xs mt-2">{uploadSuccess}</div>}
-    </div>
-  );
 
   return (
     <div className="h-full flex flex-col panel border-r">
@@ -180,9 +232,9 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
       <div className="flex-1 overflow-auto custom-scrollbar">
         <div className="p-4 space-y-4">
           {uploading && (
-            <div className="mb-4 flex items-center gap-2 text-primary text-sm">
+            <div className="mb-2 flex items-center gap-2 text-primary text-sm">
               <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
-              Uploading documents...
+              {uploadSteps[uploadStep]}
             </div>
           )}
           {documents.map((doc) => (

@@ -388,7 +388,10 @@ const RightPanel = ({
       {/* Selected Text */}
       <div className="p-4 border-b border-panel-border">
         <h3 className="font-medium text-sm mb-2">Selected Text</h3>
-        <div className="text-sm text-muted-foreground italic">
+        <div
+          className="text-sm text-muted-foreground italic max-h-24 overflow-y-auto break-words whitespace-pre-line custom-scrollbar"
+          style={{ wordBreak: "break-word" }}
+        >
           {selectedText || '"Select text from the document to see insights"'}
         </div>
       </div>
