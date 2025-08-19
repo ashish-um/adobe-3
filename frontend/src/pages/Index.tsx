@@ -81,8 +81,8 @@ const Index = () => {
 
       {/* Right Panel */}
       <ResizablePanel
-        defaultWidth={350}
-        minWidth={300}
+        defaultWidth={360}
+        minWidth={360}
         maxWidth={500}
         position="right"
         collapsible={true}

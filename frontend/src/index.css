@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Proxima+Nova:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -185,6 +186,11 @@
   }
 
   /* Custom Scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #bcbcbc #e5e7eb;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     @apply w-2;
   }
@@ -194,11 +200,18 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full hover:bg-muted-foreground;
+    background: #bcbcbc;
+    border-radius: 6px;
   }
 
   /* Tab Animation */
   .tab-indicator {
     @apply absolute bottom-0 left-0 h-0.5 bg-primary transition-all duration-300;
   }
+}
+
+/* Import Google Fonts */
+
+body, html, #root {
+  font-family: 'Proxima Nova', 'Segoe UI', 'Arial', sans-serif;
 }

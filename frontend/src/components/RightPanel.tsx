@@ -74,6 +74,9 @@ const RightPanel = ({
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Track which persona is currently generating audio
+  const [loadingPersona, setLoadingPersona] = useState<string | null>(null);
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && audioRef.current) {
@@ -207,11 +210,12 @@ const RightPanel = ({
     isPodcastLoading,
   ]);
 
+  // Use images for audio format buttons
   const audioFormats = [
-    { id: "debater", label: "Debater", icon: "💬" },
-    { id: "investigator", label: "Investigator", icon: "🔍" },
-    { id: "fundamentals", label: "Fundamentals", icon: "🧠" },
-    { id: "connections", label: "Connections", icon: "🔗" },
+    { id: "debater", label: "Debater", img: "/chat icon.png" },
+    { id: "investigator", label: "Investigator", img: "/inverstigate icon.png" },
+    { id: "fundamentals", label: "Fundamentals", img: "/gear icon.png" },
+    { id: "connections", label: "Connections", img: "/building icon.png" }
   ];
 
   const handlePlayPause = () => {
@@ -243,52 +247,37 @@ const RightPanel = ({
     return formatData ? formatData.label : format;
   };
 
-  // Updated podcast click handler to generate audio
+  // Updated podcast click handler to show loading only on clicked button
   const handlePodcastClick = async (persona: string) => {
     if (!podcastData || !podcastData[persona]) {
       console.log("No podcast data available for", persona);
       return;
     }
-
+    setLoadingPersona(persona);
     setIsGeneratingAudio(true);
     setIsPlaying(false); // Stop any current playback
-
     try {
-      console.log(`Generating podcast for ${persona}:`, podcastData[persona]);
-
       const response = await fetch("http://localhost:8000/generate_podcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(podcastData[persona]),
       });
-
       if (!response.ok) {
         throw new Error("Failed to generate podcast");
       }
-
       const data = await response.json();
-      console.log("Podcast generation response:", data);
-
-      // Construct the full audio URL
       const fullAudioUrl = `http://localhost:8000/${data.audio_path}`;
       setAudioUrl(fullAudioUrl);
-
-      // Set the active format and call the parent callback
       onAudioFormatSelect(persona as any);
-
-      // Create audio element and set up event listeners
       if (audioRef.current) {
         audioRef.current.src = fullAudioUrl;
         audioRef.current.load();
-
-        // Set up event listeners for the new audio
         audioRef.current.onloadedmetadata = () => {
           if (audioRef.current) {
             setDuration(audioRef.current.duration);
             setCurrentTime(0);
           }
         };
-
         audioRef.current.onended = () => {
           setIsPlaying(false);
           setCurrentTime(0);
@@ -296,9 +285,9 @@ const RightPanel = ({
       }
     } catch (error) {
       console.error("Error generating podcast:", error);
-      // You might want to show an error message to the user here
     } finally {
       setIsGeneratingAudio(false);
+      setLoadingPersona(null);
     }
   };
 
@@ -331,7 +320,7 @@ const RightPanel = ({
             }}
             title={section.section_title}
           >
-            <div className="break-all font-medium text-sm mb-1">
+            <div className="break-all font-bold text-base mb-1">
               {section.section_title || section.full_path || "Untitled"}
             </div>
             {section.original_content &&
@@ -348,13 +337,7 @@ const RightPanel = ({
             <div className="text-xs text-muted-foreground">
               Page: {section.page_number} | Doc: {section.document_name}
             </div>
-            {section.bounding_box && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Bounding Box: x0={section.bounding_box.x0}, x1=
-                {section.bounding_box.x1}, y0={section.bounding_box.y0}, y1=
-                {section.bounding_box.y1}
-              </div>
-            )}
+            
             <div className="text-right mt-2">
               <span className="text-2xl">"</span>
             </div>
@@ -386,7 +369,7 @@ const RightPanel = ({
       />
 
       {/* Selected Text */}
-      <div className="p-4 border-b border-panel-border">
+      <div className="py-4 pl-4 pr-1 border-b border-panel-border">
         <h3 className="font-medium text-sm mb-2">Selected Text</h3>
         <div
           className="text-sm text-muted-foreground italic max-h-24 overflow-y-auto break-words whitespace-pre-line custom-scrollbar"
@@ -449,14 +432,14 @@ const RightPanel = ({
                 value={activeInsightTab}
                 onValueChange={(value) => setActiveInsightTab(value as any)}
               >
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="contradictions" className="text-xs">
+                <TabsList className="grid w-full grid-cols-3 gap-2 bg-muted rounded-lg p-1 mb-2">
+                  <TabsTrigger value="contradictions" className="data-[state=active]:font-bold text-xs rounded-md px-2 py-1 data-[state=active]:bg-primary/80 data-[state=active]:text-white transition-colors">
                     Contradictions
                   </TabsTrigger>
-                  <TabsTrigger value="enhancements" className="text-xs">
+                  <TabsTrigger value="enhancements" className="data-[state=active]:font-bold text-xs rounded-md px-2 py-1 data-[state=active]:bg-primary/80 data-[state=active]:text-white transition-colors">
                     Enhancements
                   </TabsTrigger>
-                  <TabsTrigger value="connections" className="text-xs">
+                  <TabsTrigger value="connections" className="data-[state=active]:font-bold text-xs rounded-md px-2 py-1 data-[state=active]:bg-primary/80 data-[state=active]:text-white transition-colors">
                     Connections
                   </TabsTrigger>
                 </TabsList>
@@ -522,12 +505,12 @@ const RightPanel = ({
               variant="outline"
               size="sm"
               onClick={() => handlePodcastClick(format.id)}
-              className="flex items-center gap-2 h-auto p-3"
+              className="flex items-center gap-2 h-auto p-3 hover:bg-primary/10 hover:text-black transition-colors"
               disabled={arePodcastButtonsDisabled}
             >
-              <span className="text-lg">{format.icon}</span>
+              <img src={format.img} alt={format.label} className="w-6 h-6 object-contain" />
               <span className="text-xs">{format.label}</span>
-              {(isPodcastLoading || isGeneratingAudio) && (
+              {loadingPersona === format.id && (
                 <span className="ml-2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
               )}
             </Button>
@@ -537,12 +520,6 @@ const RightPanel = ({
         {isPodcastLoading && (
           <div className="mt-2 text-xs text-muted-foreground text-center">
             Loading podcast data...
-          </div>
-        )}
-        {/* Loading indicator for audio generation */}
-        {isGeneratingAudio && (
-          <div className="mt-2 text-xs text-muted-foreground text-center">
-            Generating audio...
           </div>
         )}
       </div>

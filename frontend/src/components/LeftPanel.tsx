@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, FileText, Mic } from "lucide-react";
+import { Search, FileText, Mic, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import LoadingText from "./LoadingText";
@@ -201,10 +201,13 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
     }
   };
 
-  const getDocumentIcon = (type: string) => {
+  const getDocumentIcon = (type: string, isSelected: boolean) => {
+    if (isSelected) {
+      return <FileText className="w-4 h-4 text-blue-600" />;
+    }
     switch (type) {
       case "business":
-        return <FileText className="w-4 h-4 text-orange-500" />;
+        return <FileText className="w-4 h-4 text-gray-500" />;
       case "market":
         return <FileText className="w-4 h-4 text-blue-500" />;
       default:
@@ -219,12 +222,7 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
 
       {/* Tab Headers */}
       <div className="flex border-b border-panel-border">
-        <button
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative`}
-        >
-          Library
-          
-        </button>
+        <div className="flex-1 px-4 py-3 text-lg font-bold text-left">Library</div>
       </div>
 
 
@@ -244,14 +242,14 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
                 className={`flex items-center gap-3 flex-1 p-3 rounded-lg hover:bg-sidebar-hover transition-colors text-left ${doc.id === selectedDocument ? 'bg-primary/10 border border-primary' : ''}`}
                 style={doc.id === selectedDocument ? { fontWeight: 'bold' } : {}}
               >
-                {getDocumentIcon(doc.type)}
+                {getDocumentIcon(doc.type, doc.id === selectedDocument)}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate max-w-[180px]" title={doc.name}>
                     {doc.name.length > 32 ? doc.name.slice(0, 29) + '...' : doc.name}
                   </div>
                 </div>
                 <button
-                  className="ml-2 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                  className="p-1 text-xs text-red-400  rounded hover:bg-red-200 flex"
                   title="Delete document"
                   onClick={async (e) => {
                     e.stopPropagation();
@@ -273,7 +271,7 @@ const LeftPanel = ({ onSectionClick, onDocumentSelect, selectedDocument }: LeftP
                     }
                   }}
                 >
-                  Delete
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </button>
 
