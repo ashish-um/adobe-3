@@ -15,7 +15,7 @@ load_dotenv()
 # --- Configuration ---
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 EMBEDDING_MODEL = "models/text-embedding-004"
-GENERATION_MODEL = "gemini-1.5-flash-latest"
+GENERATION_MODEL = "gemini-2.5-flash"
 CHROMA_DB_PATH = "chroma_db"
 CHROMA_COLLECTION_NAME = "document_insights"
 RERANKER_MODEL = 'cross-encoder/ms-marco-MiniLM-L6-v2'
