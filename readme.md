@@ -7,7 +7,21 @@ This project is a full-stack web application designed to help users gain deeper 
 
 https://github.com/user-attachments/assets/551ae6c6-e0e8-4b2f-8514-4a5c110a7338
 
+## **Important Note**
+🚀 Performance Optimization
+For a significant performance boost, you can switch to a faster generation model. By using the `gemini-1.5-flash-latest` model, the processing time for generating insights and podcasts can be reduced by up to 80%.
 
+To make this change, modify the `GENERATION_MODEL` variable in the following two files inside the backend directory:
+
+`retrieval_handler.py`
+
+`file_api_handler.py`
+
+Change this line:
+`GENERATION_MODEL = "gemini-2.5-flash"`
+
+To this:
+`GENERATION_MODEL = "gemini-1.5-flash-latest"`
 
 ## **🚀 Getting Started with Docker**
 
