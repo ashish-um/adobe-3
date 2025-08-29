@@ -2,11 +2,6 @@
 
 This project is a full-stack web application designed to help users gain deeper insights from their personal document libraries. By leveraging AI and machine learning, it transforms a static collection of PDFs into an interactive knowledge base. When a user selects text in one document, the system instantly surfaces related concepts, contradictory viewpoints, and relevant examples from all other documents in their library.
 
-## 🎥 Demo :
-
-
-https://github.com/user-attachments/assets/551ae6c6-e0e8-4b2f-8514-4a5c110a7338
-
 ## **Important Note**
 🚀 Performance Optimization
 For a significant performance boost, you can switch to a faster generation model. By using the `gemini-1.5-flash-latest` model, the processing time for generating insights and podcasts can be reduced by up to 80%.
